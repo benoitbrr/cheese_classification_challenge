@@ -1,0 +1,8 @@
+instance:
+  _target_: models.dinov2.DinoV2Finetune
+  num_classes: ${dataset.num_classes}
+  frozen: True
+  unfreeze_last_layer: True
+  unfreeze_second_last_layer: False
+
+name: DINOV2

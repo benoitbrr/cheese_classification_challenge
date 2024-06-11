@@ -1,0 +1,11 @@
+defaults:
+  - train_transform: simple
+  - test_transform: simple
+
+name: test_prompts
+num_classes: 37
+batch_size: 128
+num_workers: 12
+train_path: ${data_dir}/merge
+real_images_val_path: ${data_dir}/val
+test_path: ${data_dir}/test

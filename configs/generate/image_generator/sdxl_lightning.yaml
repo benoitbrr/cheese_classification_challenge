@@ -1,0 +1,2 @@
+_target_: generators.sdxl_lightning.SDXLLightiningGenerator
+use_cpu_offload: false
