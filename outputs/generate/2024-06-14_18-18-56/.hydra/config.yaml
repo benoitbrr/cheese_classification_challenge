@@ -1,0 +1,13 @@
+image_generator:
+  _target_: generators.sdxl_lightning.SDXLLightiningGenerator
+  use_cpu_offload: false
+dataset_generator:
+  _target_: data.dataset_generators.simple.SimplePromptsDatasetGenerator
+  generator: ${image_generator}
+  batch_size: ${batch_size}
+  output_dir: ${data_dir}/train/simple_prompts
+  num_images_per_label: 10
+data_dir: ${root_dir}/dataset
+root_dir: ${hydra:runtime.cwd}
+batch_size: 1
+labels_file: ${root_dir}/list_of_cheese.txt
