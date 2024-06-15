@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ## Using this codebase
 This codebase is centered in the file Implement.ipynb. 
 
-You just have to run the code (update the path before that) in order to train the model, and then to create a submission
+You just have to run the code (update the paths before that) in order to train the model, and then to create a submission
 
 ### Training
 
