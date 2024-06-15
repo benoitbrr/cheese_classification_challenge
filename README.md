@@ -1,7 +1,7 @@
 # Cheese Classification challenge
 This codebase is the code we used for the INF473V challenge.
 
-## Instalation
+## Installation
 
 Cloning the repo:
 ```
