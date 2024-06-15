@@ -15,7 +15,8 @@ conda activate cheese_challenge
 pip install -r requirements.txt
 ```
 ## Using this codebase
-This codebase is centered in the file Implement.ipynb
+This codebase is centered in the file Implement.ipynb. 
+
 You just have to run the code (update the path before that) in order to train the model, and then to create a submission
 
 ### Training
