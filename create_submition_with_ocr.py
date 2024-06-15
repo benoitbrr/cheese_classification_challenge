@@ -1,31 +1,27 @@
 import hydra
 from torch.utils.data import Dataset, DataLoader
 import os
+import PIL
 from PIL import Image
 import pandas as pd
 import torch
 from IPython.display import display
-from ultralytics import YOLO
-from collections import Counter
 import torchvision.transforms as transforms
+from os import listdir
+from os.path import isfile, join
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] ='cheese_classification_challenge/aesthetic-frame-414017-bb70db4249a8.json'
+from google.cloud import vision
+import time
+
+import random
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # --------------------------------------------------------------------------------------------
 
-import PIL
-from PIL import Image
-import os
-from IPython.display import display
-import random
-import numpy as np
 
 
-from os import listdir
-from os.path import isfile, join
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] ='/content/drive/MyDrive/aesthetic-frame-414017-bb70db4249a8.json'
-from google.cloud import vision
-import time
 
 cheeses = {
 "BRIE DE MELUN": ["Brie", "BRIE", "brie", "MELUN", "Melun", "melun"],
@@ -67,82 +63,7 @@ cheeses = {
 "FROMAGE FRAIS": ["Fromage frais", "Fromage Frais", "fromage frais", "fromage Frais", "FROMAGE FRAIS"]
 }
 
-messages1 = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image"},
-            {"type": "text", "text":
-            " Is there a label on the image ? "
-            }
-             ]
-    },
-]
 
-messages2 = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image"},
-            {"type": "text", "text":
-             "Is there one of the following labels : " + 
-             "BRIE, ".lower() + 
-             "CAMEMBERT, ".lower()+
-"EPOISSES, ".lower()+
-"AMBERT, ".lower()+
-"RACLETTE, ".lower()+
-"MORBIER, ".lower()+
-"NECTAIRE, ".lower()+
-"POULIGNY, ".lower()+
-"SAINT-PIERRE, ".lower()+
-"ROQUEFORT, ".lower()+
-"COMTÉ, ".lower()+
-"CHÈVRE, ".lower()+
-"PECORINO, ".lower()+
-"NEUFCHATEL, ".lower()+
-"CHEDDAR, ".lower()+
-"BÛCHETTE, ".lower()+
-"PARMESAN, ".lower()+
-"FÉLICIEN, ".lower()+
-"MONT D’OR, ".lower()+
-"STILTON, ".lower()+
-"SCARMOZA, ".lower()+
-"CABECOU, ".lower()+
-"BEAUFORT, ".lower()+
-"MUNSTER, ".lower()+
-"CHABICHOU, ".lower()+
-"TOMME, ".lower()+
-"VACHE, ".lower()+
-"REBLOCHON, ".lower()+
-"EMMENTAL, ".lower()+
-"FETA, ".lower()+
-"OSSAU, ".lower()+
-"IRATY, ".lower()+
-"MIMOLETTE, ".lower()+
-"MAROILLES, ".lower()+
-"GRUYÈRE, ".lower()+
-"MOTHAIS, ".lower()+
-"VACHERIN, ".lower()+
-"MOZZARELLA, ".lower()+
-"MOINES, ".lower()+
-"FROMAGE FRAIS, " .lower()+ 
-             "or none of these ?"
-             }
-             ]
-    },
-]
-
-messages3 = [
-    {
-        "role": "user",
-        "content": [
-            {"type": "image"},
-            {"type": "text", "text":
-                "Do you see the following label : "
-            }
-             ]
-    },
-]
 
 # prend en entrée un path vers une image et retourne une liste de mots detectés sur l'image 
 def detect_text(path):
@@ -192,8 +113,6 @@ def to_list(path_list):
   return flags, preds
 
 
-model_yolo = YOLO("yolov8n.pt")
-
 transform = transforms.ToTensor()
 
 # PARAMS : 
@@ -212,21 +131,21 @@ printer = True
 
 
 class TestDataset(Dataset):
-    def __init__(self, test_dataset_path, test_transform):
+    def _init_(self, test_dataset_path, test_transform):
         self.test_dataset_path = test_dataset_path
         self.test_transform = test_transform
         images_list = os.listdir(self.test_dataset_path)
         # filter out non-image files
         self.images_list = [image for image in images_list if image.endswith(".jpg")]
 
-    def __getitem__(self, idx):
+    def _getitem_(self, idx):
         image_name = self.images_list[idx]
         image_path = os.path.join(self.test_dataset_path, image_name)
         image = Image.open(image_path)
         image = self.test_transform(image)
         return image, os.path.splitext(image_name)[0]
 
-    def __len__(self):
+    def _len_(self):
         return len(self.images_list)
 
 
@@ -268,55 +187,6 @@ def create_submission(cfg):
             labeled_images_path = os.path.join(cfg.dataset.test_path, names)
             images2.append(labeled_images_path + '.jpg')
 
-          '''
-
-          object_list = model_yolo(images2, verbose=yolo_verbose)
-          bxs = [o.boxes for o in object_list]
-          confidences = [bx.conf for bx in bxs] # liste [image] -> liste confiance des prédictions dans l'image prédite
-          crops = [bx.xyxy for bx in bxs] # liste [image] -> liste des coordonnées d'objets d'intéret dans l'image
-
-          
-          yolo_preds_vote = []
-          yolo_preds_sum = []
-          yolo_preds_conf = []
-
-          for k in range(len(images2)):  # pour chq image
-            ans = [] # tableau des classes prédites
-
-            total_preds = torch.zeros((1, 37)).to(device)
-
-            img = Image.open(images2[k]) # on ouvre l'image de base
-            counted = 0
-
-            for j in range(len(crops[k])): # pour chq objet d'intéret dans l'image
-              if(confidences[k][j].item() > borne_inf): # si on est confiant sur la prédiction 
-                new_img = img.crop((crops[k][j][0].item(),crops[k][j][1].item(),crops[k][j][2].item(),crops[k][j][3].item()))
-                resized = new_img.resize((224, 224))
-                resized = transform(resized).unsqueeze(0).to(device)
-                #print("La :")
-                assert(resized.shape == (1, 3, 224, 224))
-                #print(resized.shape)
-                model_pred = model(resized)
-                if(model_pred.max(1).values.item() > 2.5):
-                  counted += 1
-                  total_preds += model_pred
-                ans.append(class_names[model_pred.argmax(1)])
-            
-            counts = Counter(ans)
-
-            if(len(ans) != 0):
-              total_preds = total_preds / counted
-              mcs, mcc = counts.most_common(1)[0]
-              yolo_preds_vote.append(mcs)
-              yolo_preds_sum.append(class_names[total_preds.argmax(1)])
-              yolo_preds_conf.append(total_preds.max(1).values)
-            else:
-              yolo_preds_vote.append('')
-              yolo_preds_sum.append('')
-              yolo_preds_conf.append(0.)
-
-          '''
-
           bls, classes = to_list(images2)
 
           #print("Ici : ")
@@ -335,16 +205,6 @@ def create_submission(cfg):
               if(preds[j] == classes[j]):
                 nb_im_same_pred += 1.
               preds[j] = classes[j]
-            '''
-            else:
-              if(yolo_preds_sum[j] != preds[j] and yolo_preds_sum[j] != '') :#and yolo_preds_conf[j] >= preds_confs[j]):
-                preds[j] = yolo_preds_sum[j]
-                print("Yolo : ",  yolo_preds_conf[j].item())
-                print("Normal : ", preds_confs[j].item())
-                print("Il y a : ", len(crops[j]), " sous images détectés")
-                nb_yolo_modified += 1.
-            '''
-
 
           ratio_same_pred  =  100 * nb_im_same_pred / len(bls)
           ratio_label = 100 * nb_im_label / len(bls)
@@ -355,7 +215,6 @@ def create_submission(cfg):
             print("Dans ce batch, " + str(ratio_same_pred) + "% des images ont la même prédiction par le modèle que par l'OCR")
             print("Dans ce batch, " + str(ratio_same_yolo) + "% des images ont une prédiction qui vient de YOLO")
             print('\n')
-
 
           # -------------------------
 
@@ -375,8 +234,7 @@ def create_submission(cfg):
           )
     submission.to_csv(f"{cfg.root_dir}/submission.csv", index=False)
 
-
-if __name__ == "__main__":
+if _name_ == "_main_":
     print('\n')
     print("Lors de cet entrainement, voici la valeur des paramètres :")
     print("using_model : " +  str(using_model))
